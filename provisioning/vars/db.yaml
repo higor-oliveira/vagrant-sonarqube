@@ -1,0 +1,4 @@
+db_host: "192.168.10.10"
+db_name: "sonarqube"
+db_user: "sonarqube"
+db_password: "sonarqube"

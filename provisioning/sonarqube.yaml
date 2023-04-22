@@ -1,0 +1,51 @@
+- hosts: sonarqube
+  vars_files:
+  - vars/db.yaml
+
+  tasks:
+  - name: Install dependencies
+    become: true
+    apt:
+      name:
+        - unzip
+        - openjdk-17-jre
+      state: present
+      update_cache: true
+
+  - name: Download and extract SonarQube
+    become: true
+    unarchive:
+      src: https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-9.9.0.65466.zip
+      dest: /opt
+      remote_src: yes
+      creates: /opt/sonarqube-9.9.0.65466
+ 
+  - name: Configure SonarQube to use PostgreSQL
+    become: true
+    lineinfile:
+      dest: "/opt/sonarqube-9.9.0.65466/conf/sonar.properties"
+      regexp: "{{ item.regexp }}"
+      line: "{{ item.line }}"
+    with_items:
+      - { regexp: "^sonar.jdbc.url=.*$", line: "sonar.jdbc.url=jdbc:postgresql://{{ db_host }}/{{ db_name }}?user={{ db_user }}&password={{ db_password }}" }
+      - { regexp: "^#sonar.jdbc.username=.*$", line: "sonar.jdbc.username={{ db_user }}" }
+      - { regexp: "^#sonar.jdbc.password=.*$", line: "sonar.jdbc.password={{ db_password }}" }
+
+  - name: Define directory owner
+    become: true
+    file:
+      path: /opt/sonarqube-9.9.0.65466
+      owner: vagrant
+      group: vagrant
+      recurse: yes
+  
+  - name: Define vm.max_map_count
+    become: true
+    sysctl:
+      name: vm.max_map_count
+      value: "262144"
+      state: present
+      reload: yes
+
+  - name: Start SonarQube service
+    shell: /opt/sonarqube-9.9.0.65466/bin/linux-x86-64/sonar.sh start
